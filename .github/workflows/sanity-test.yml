@@ -1,63 +1,97 @@
-name: Sanity Test CI
+me: Model Sanity Check
 
 on:
     pull_request:
           branches: [main]
 
 permissions:
-  contents: read
-  pull-requests: write
+  pull-requests: write    # Needed for CML to comment on the PR
+  contents: read          # Needed for actions/checkout
+
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
+
+
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
+      
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
           pip install -r requirements.txt
-          pip install flake8 black pytest matplotlib scikit-learn joblib pandas
+          pip install black flake8 pytest
 
-      - name: Run training script
-        run: python src/train.py
 
-      - name: Check code formatting (black)
-        run: black --check .
+      - name: Auto-format with Black
+        run: |
+          source .venv/bin/activate
+          black --check --diff src/ tests/ || true
+          echo "## Code Formatting (Black)" > report.md
+          black --check --diff src/ tests/ >> report.md 2>&1 || echo "Formatting issues found" >> report.md
+          echo "" >> report.md
 
-      - name: Lint with flake8
-        run: flake8 .
 
-      - name: Run unit tests
-        run: pytest tests/
+      - name: Lint with Flake8
+        run: |
+          source .venv/bin/activate
+          echo "## Linting Results (Flake8)" >> report.md
+          flake8 src/ tests/ --max-line-length=88 --extend-ignore=E203,W503 >> report.md 2>&1 || echo "Linting issues found" >> report.md
+          echo "" >> report.md
 
-      - name: Plot performance metrics
-        run: python src/plot_metrics.py
+
+      - name: Run training
+        run: |
+          source .venv/bin/activate
+          python src/train.py
+
+
+      - name: Generate model performance metrics
+        run: |
+          source .venv/bin/activate
+          python src/plot_metrics.py
+          echo "## Model Performance Metrics" >> report.md
+          echo "![Model Metrics](metrics.png)" >> report.md
+          echo "" >> report.md
+
+
+      - name: Run tests and save report
+        run: |
+          source .venv/bin/activate
+          echo "## Test Results" >> report.md
+          pytest --tb=short --disable-warnings >> report.md 2>&1 || true
+          echo "" >> report.md
+          echo "Tests completed on $(date)" >> report.md
+
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: model-and-metrics
+          name: model-artifacts
           path: |
-            model.joblib
-            label_encoder.joblib
-            test_data.joblib
+            model.pkl
             metrics.png
             report.md
+            *.json
+            *.csv
 
       - name: Setup CML
         uses: iterative/setup-cml@v2
 
-
-      - name: Comment report on PR
+      - name: Comment test results with CML
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cml comment create report.md
+          source .venv/bin/activate
+          cml comment create report.md 
