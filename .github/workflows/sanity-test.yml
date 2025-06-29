@@ -94,4 +94,4 @@ jobs:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           source .venv/bin/activate
-          cml comment report.md 
+          cml comment --file report.md
