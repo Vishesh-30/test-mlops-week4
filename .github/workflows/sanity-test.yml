@@ -1,4 +1,4 @@
-me: Sanity Test CI
+name: Sanity Test CI
 
 on:
     pull_request:
