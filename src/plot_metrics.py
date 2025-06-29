@@ -24,5 +24,5 @@ plt.close()
 with open("report.md", "w") as f:
     f.write("# Model Report\n\n")
     f.write("## Confusion Matrix\n\n")
-    f.write("![Confusion Matrix](./metrics.png)\n")
+    f.write("![Confusion Matrix](./metrics.png)\n")
                 
